@@ -1,5 +1,5 @@
 // ── Verzija cache-a — promijenite ovu vrijednost za forsiranje novog cache-a ──
-const VERSION = 'v9';
+const VERSION = 'v7';
 const CACHE   = 'evidencija-pica-' + VERSION;
 
 const STATIC = [

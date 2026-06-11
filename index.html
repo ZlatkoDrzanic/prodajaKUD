@@ -251,8 +251,9 @@
 
 <!-- LOADING -->
 <div id="loading-screen">
-  <div class="spinner"></div>
-  <p>Spajanje na bazu...</p>
+  <div class="spinner" id="loading-spinner"></div>
+  <p id="loading-msg">Spajanje...</p>
+  <p id="loading-sub" style="font-size:12px;color:var(--text3);margin-top:-8px;display:none"></p>
 </div>
 
 <!-- LOGIN -->
@@ -549,11 +550,13 @@ function showLoading() {
   document.getElementById('main-app').style.display       = 'none';
 }
 function showLogin() {
+  _markAppStarted();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('login-screen').style.display   = 'flex';
   document.getElementById('main-app').style.display       = 'none';
 }
 function showApp() {
+  _markAppStarted();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('login-screen').style.display   = 'none';
   document.getElementById('main-app').style.display       = 'block';
@@ -586,8 +589,10 @@ onAuthStateChanged(auth, async user => {
   if (!user) { showLogin(); return; }
 
   // Ažuriraj loading poruku
-  const loadingMsg = document.querySelector('#loading-screen p');
+  const loadingMsg = document.getElementById('loading-msg');
+  const loadingSub = document.getElementById('loading-sub');
   if (loadingMsg) loadingMsg.textContent = 'Spajanje na bazu...';
+  if (loadingSub) { loadingSub.style.display='block'; loadingSub.textContent = 'Dohvaćanje korisničkog profila...'; }
 
   try {
     const snap = await withTimeout(getDoc(doc(db, 'korisnici', user.uid)), 8000);
@@ -1237,6 +1242,38 @@ document.getElementById('inp-email').addEventListener('keydown', e=>{if(e.key===
 
 </script>
 <script>
+// ── Hard timeout — ako se ništa ne dogodi za 12s, pokaži error ──
+let _appStarted = false;
+const _hardTimeout = setTimeout(() => {
+  if (_appStarted) return;
+  const ls = document.getElementById('loading-screen');
+  if (!ls || ls.style.display === 'none') return;
+  ls.innerHTML = `
+    <div style="text-align:center;padding:32px 24px;max-width:320px">
+      <div style="width:60px;height:60px;border-radius:50%;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+        <svg style="width:28px;height:28px;stroke:var(--red);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div style="font-size:17px;font-weight:600;margin-bottom:8px">Greška pri spajanju</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.6">
+        Nije moguće spojiti se na Firebase.<br>Provjerite internetsku vezu i pokušajte ponovo.
+      </div>
+      <button onclick="window.location.reload()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#2d7a4f;color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;margin-bottom:12px;display:block">
+        Pokušaj ponovo
+      </button>
+      <button onclick="localStorage.clear();sessionStorage.clear();window.location.reload()" style="width:100%;padding:12px;border-radius:12px;border:0.5px solid #cbc8c2;background:transparent;color:#6b6862;font-size:14px;font-family:inherit;cursor:pointer;display:block">
+        Resetiraj i pokušaj ponovo
+      </button>
+    </div>`;
+}, 12000);
+
+// Označi app kao pokrenutu (gasi hard timeout)
+function _markAppStarted() {
+  _appStarted = true;
+  clearTimeout(_hardTimeout);
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
