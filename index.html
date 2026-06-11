@@ -1226,9 +1226,14 @@ if ('serviceWorker' in navigator) {
   });
 
   // Kad novi SW preuzme kontrolu — reload stranice
+  // Loading screen je već prikazan u primijenUpdate() pa nema treperenja
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) { refreshing = true; window.location.reload(); }
+    if (!refreshing) {
+      refreshing = true;
+      // Kratka pauza da loading screen bude vidljiv
+      setTimeout(() => window.location.reload(), 300);
+    }
   });
 }
 
@@ -1238,8 +1243,23 @@ function pokaziUpdateBanner() {
 }
 
 function primijenUpdate() {
+  // Sakrij update splash
   const splash = document.getElementById('update-splash');
   if (splash) splash.style.display = 'none';
+
+  // Pokaži loading screen s porukom o ažuriranju
+  const loadingScreen = document.getElementById('loading-screen');
+  const loadingMsg = loadingScreen ? loadingScreen.querySelector('p') : null;
+  if (loadingScreen) loadingScreen.style.display = 'flex';
+  if (loadingMsg) loadingMsg.textContent = 'Učitavanje nove verzije...';
+
+  // Sakrij sve ostalo
+  ['login-screen','main-app'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Aktiviraj novi service worker
   navigator.serviceWorker.getRegistration().then(reg => {
     if (reg && reg.waiting) {
       reg.waiting.postMessage('SKIP_WAITING');
