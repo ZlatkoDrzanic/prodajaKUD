@@ -373,6 +373,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          createUserWithEmailAndPassword, updatePassword }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { initializeApp as initializeSecondaryApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc,
          addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -391,6 +392,10 @@ const ADMIN_UID = '7gpZPd3ofnhZd0NTWfwEMy0ZOeB3';
 const fbApp  = initializeApp(firebaseConfig);
 const auth   = getAuth(fbApp);
 const db     = getFirestore(fbApp);
+
+// Sekundarna app za kreiranje korisnika — ne mijenja aktivnu sesiju
+const fbApp2 = initializeSecondaryApp(firebaseConfig, 'secondary');
+const auth2  = getAuth(fbApp2);
 
 // ── State ────────────────────────────────────────────────
 let trenutniKorisnik = null;  // { uid, ime, email, role }
@@ -871,13 +876,15 @@ window.dodajKorisnika = async function() {
 
   btn.disabled=true; btn.textContent='Kreiranje...'; err.textContent='';
   try {
-    // Kreiraj Firebase Auth korisnika
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    // Kreiraj korisnika kroz SEKUNDARNU app — glavna sesija (Zlatko) ostaje nepromijenjena
+    const cred = await createUserWithEmailAndPassword(auth2, email, pass);
     const newUid = cred.user.uid;
-    // Spremi profil u Firestore
+    // Odmah odjavi novog korisnika iz sekundarne app
+    await signOut(auth2);
+    // Spremi profil u Firestore (Zlatko je još uvijek prijavljen u glavnoj app)
     await setDoc(doc(db,'korisnici',newUid), {ime, email, role});
-    // Vrati se na Admin sesiju (createUser ne mijenja auth state zahvaljujući onAuthStateChanged guard)
-    zatvoriModal(); toast('Korisnik ' + ime + ' dodan (' + (role==='admin'?'Admin':'Korisnik') + ')');
+    zatvoriModal();
+    toast('Korisnik ' + ime + ' dodan (' + (role==='admin'?'Admin':'Korisnik') + ')');
   } catch(e) {
     err.textContent = e.code==='auth/email-already-in-use' ? 'Email već postoji.'
                     : e.code==='auth/invalid-email' ? 'Neispravan email format.'
