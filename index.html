@@ -184,6 +184,58 @@
   .modal-btn.ok{background:var(--green-bg);border-color:#b2d9c0;color:var(--green);}
   .modal-err{font-size:12px;color:var(--red);margin-top:-4px;margin-bottom:8px;min-height:16px;}
 
+  /* ── Universal confirm splash ── */
+  #confirm-splash {
+    display:none; position:fixed; inset:0; z-index:550;
+    background:rgba(0,0,0,0.45);
+    align-items:flex-end; justify-content:center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #confirm-splash.open { display:flex; }
+  .confirm-sheet {
+    background:var(--surface); border-radius:20px 20px 0 0;
+    padding:28px 20px 24px; width:100%; max-width:480px;
+    text-align:center; animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .confirm-icon {
+    width:56px;height:56px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 16px;
+  }
+  .confirm-icon svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;}
+  .confirm-title{font-size:18px;font-weight:600;margin-bottom:6px;letter-spacing:-0.3px;}
+  .confirm-msg{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:24px;}
+  .confirm-btns{display:flex;flex-direction:column;gap:10px;}
+  .confirm-btn-yes{width:100%;padding:14px;border-radius:var(--radius);border:none;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;}
+  .confirm-btn-no{width:100%;padding:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);font-size:15px;font-family:inherit;font-weight:500;cursor:pointer;}
+
+  /* ── Universal confirm splash ── */
+  #confirm-splash {
+    display:none; position:fixed; inset:0; z-index:550;
+    background:rgba(0,0,0,0.45);
+    align-items:flex-end; justify-content:center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #confirm-splash.open { display:flex; }
+  .confirm-sheet {
+    background:var(--surface); border-radius:20px 20px 0 0;
+    padding:28px 20px 24px; width:100%; max-width:480px;
+    text-align:center; animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .confirm-icon {
+    width:56px;height:56px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 16px;
+  }
+  .confirm-icon svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;}
+  .confirm-title{font-size:18px;font-weight:600;margin-bottom:6px;letter-spacing:-0.3px;}
+  .confirm-msg{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:24px;}
+  .confirm-btns{display:flex;flex-direction:column;gap:10px;}
+  .confirm-btn-yes{width:100%;padding:14px;border-radius:var(--radius);border:none;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;}
+  .confirm-btn-no{width:100%;padding:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);font-size:15px;font-family:inherit;font-weight:500;cursor:pointer;}
+
   /* QR overlay */
   .qr-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:150;display:none;align-items:center;justify-content:center;padding:24px; }
   .qr-overlay.open { display:flex; }
@@ -365,10 +417,61 @@
   </div>
 </div>
 
-<!-- Update banner -->
-<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:#1a5fa8;color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;gap:12px;font-size:14px;">
-  <span>Nova verzija aplikacije je dostupna.</span>
-  <button onclick="primijenUpdate()" style="background:#fff;color:#1a5fa8;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Osvježi</button>
+<!-- Update splash screen -->
+<div id="update-splash" style="
+  display:none;position:fixed;inset:0;z-index:600;
+  background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 24px;text-align:center;
+">
+  <!-- Ikona -->
+  <div style="width:80px;height:80px;border-radius:22px;background:var(--green);display:flex;align-items:center;justify-content:center;margin-bottom:24px;box-shadow:0 4px 20px rgba(45,122,79,0.3)">
+    <svg style="width:40px;height:40px;stroke:#fff;fill:none;stroke-width:1.6" viewBox="0 0 24 24">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+    </svg>
+  </div>
+
+  <!-- Tekst -->
+  <div style="font-size:22px;font-weight:700;letter-spacing:-0.4px;margin-bottom:8px">Nova verzija</div>
+  <div style="font-size:15px;color:var(--text2);line-height:1.6;max-width:280px;margin-bottom:36px">
+    Dostupna je nova verzija aplikacije.<br>Želite li ju odmah učitati?
+  </div>
+
+  <!-- Gumbi -->
+  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px">
+    <button onclick="primijenUpdate()" style="
+      width:100%;padding:15px;border-radius:var(--radius);border:none;
+      background:var(--green);color:#fff;font-size:16px;
+      font-family:inherit;font-weight:600;cursor:pointer;
+      box-shadow:0 2px 12px rgba(45,122,79,0.25);
+    ">
+      Da, učitaj novu verziju
+    </button>
+    <button onclick="odbijUpdate()" style="
+      width:100%;padding:14px;border-radius:var(--radius);
+      border:0.5px solid var(--border2);background:transparent;
+      color:var(--text2);font-size:15px;font-family:inherit;
+      font-weight:500;cursor:pointer;
+    ">
+      Ne, nastavi s trenutnom
+    </button>
+  </div>
+</div>
+
+<!-- Universal confirm splash -->
+<div id="confirm-splash">
+  <div class="confirm-sheet">
+    <div class="confirm-icon" id="cs-icon">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </div>
+    <div class="confirm-title" id="cs-title">Jeste li sigurni?</div>
+    <div class="confirm-msg" id="cs-msg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-btn-yes" id="cs-yes">Da, obriši</button>
+      <button class="confirm-btn-no" onclick="zatvoriConfirm()">Ne, odustani</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -822,14 +925,25 @@ window.spremiArtikal = async function() {
       toast('Artikal dodan');
     }
     render();
-  } catch(e) { toast('Greška: '+e.message); }
+      } catch(e) { toast('Greška: '+e.message); }
+    }
+  });
 };
 window.startEdit  = function(id){editId=id;render();setTimeout(()=>{const el=document.getElementById('inp-naziv');if(el)el.focus();},50);};
 window.cancelEdit = function(){editId=null;render();};
-window.obrisiArtikal = async function(id) {
-  if (!confirm('Obrisati artikal?')) return;
-  await deleteDoc(doc(db,'artikli',id));
-  toast('Artikal obrisan');
+window.obrisiArtikal = function(id) {
+  const a = artikli.find(x=>x.id===id);
+  pokaziConfirm({
+    title: 'Obriši artikal',
+    msg: '"' + (a ? a.naziv : 'Artikal') + '" će biti trajno obrisan.',
+    yesTekst: 'Da, obriši artikal',
+    boja: 'var(--red)',
+    ikona: 'trash',
+    callback: async () => {
+      await deleteDoc(doc(db,'artikli',id));
+      toast('Artikal obrisan');
+    }
+  });
 };
 
 // ── Edit sesije ──────────────────────────────────────────
@@ -864,18 +978,35 @@ window.zatvoriEdit = function(){document.getElementById('edit-screen').classList
 window.spremiEdit = async function() {
   const stavke = editStavke.filter(r=>r.kolicina>0).map(r=>({...r,ukupno:r.kolicina*r.cijena}));
   if (!stavke.length) {
-    if (!confirm('Sve stavke su na 0. Obrisati cijelu evidenciju?')) return;
-    await deleteDoc(doc(db,'evidencije',editSesijaId));
-    zatvoriEdit(); toast('Evidencija obrisana'); return;
+    pokaziConfirm({
+      title: 'Sve stavke su na nuli',
+      msg: 'Sve količine su postavljene na 0. Obrisati cijelu evidenciju?',
+      yesTekst: 'Da, obriši evidenciju',
+      boja: 'var(--red)',
+      ikona: 'zero',
+      callback: async () => {
+        await deleteDoc(doc(db,'evidencije',editSesijaId));
+        zatvoriEdit(); toast('Evidencija obrisana');
+      }
+    });
+    return;
   }
   const uk=stavke.reduce((s,r)=>s+r.ukupno,0), km=stavke.reduce((s,r)=>s+r.kolicina,0);
   await updateDoc(doc(db,'evidencije',editSesijaId),{stavke,ukupno:uk,komadi:km});
   zatvoriEdit(); toast('Evidencija ažurirana ✓');
 };
-window.obrisiSesiju = async function(id) {
-  if (!confirm('Obrisati ovu evidenciju?')) return;
-  await deleteDoc(doc(db,'evidencije',id));
-  toast('Evidencija obrisana');
+window.obrisiSesiju = function(id) {
+  pokaziConfirm({
+    title: 'Obriši evidenciju',
+    msg: 'Ova evidencija će biti trajno obrisana i neće se moći povratiti.',
+    yesTekst: 'Da, obriši',
+    boja: 'var(--red)',
+    ikona: 'trash',
+    callback: async () => {
+      await deleteDoc(doc(db,'evidencije',id));
+      toast('Evidencija obrisana');
+    }
+  });
 };
 
 // ── Korisnici (admin) ────────────────────────────────────
@@ -930,15 +1061,22 @@ window.toggleRole = async function(uid, currentRole) {
   } catch(e) { toast('Greška: ' + e.message); }
 };
 
-window.obrisiKorisnika = async function(uid, ime) {
-  if (!confirm('Obrisati korisnika ' + ime + '?\n\nKorisnik neće moći više pristupiti aplikaciji.')) return;
-  try {
-    await deleteDoc(doc(db,'korisnici',uid));
-    // Ažuriraj lokalni niz odmah
-    sviKorisnici = sviKorisnici.filter(x=>x.uid!==uid);
-    renderKorisnike();
-    toast('Korisnik ' + ime + ' obrisan');
-  } catch(e) { toast('Greška: ' + e.message); }
+window.obrisiKorisnika = function(uid, ime) {
+  pokaziConfirm({
+    title: 'Obriši korisnika',
+    msg: ime + ' neće moći više pristupiti aplikaciji.',
+    yesTekst: 'Da, obriši korisnika',
+    boja: 'var(--red)',
+    ikona: 'user',
+    callback: async () => {
+      try {
+        await deleteDoc(doc(db,'korisnici',uid));
+        sviKorisnici = sviKorisnici.filter(x=>x.uid!==uid);
+        renderKorisnike();
+        toast('Korisnik ' + ime + ' obrisan');
+      } catch(e) { toast('Greška: ' + e.message); }
+    }
+  });
 };
 
 // ---- modal novi korisnik ----
@@ -1025,6 +1163,39 @@ window.zatvoriQR = function() {
   document.getElementById('qr-overlay').classList.remove('open');
   document.body.style.overflow = '';
 };
+// ── Universal confirm splash ─────────────────────────────
+let _confirmCallback = null;
+
+function pokaziConfirm({ title, msg, yesTekst = 'Da, obriši', boja = 'var(--red)', ikona = 'trash', callback }) {
+  const ikone = {
+    trash:  '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>',
+    warn:   '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    user:   '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>',
+    zero:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+  };
+  document.getElementById('cs-icon').style.background = boja;
+  document.getElementById('cs-icon').innerHTML = ikone[ikona] || ikone.trash;
+  document.getElementById('cs-title').textContent = title;
+  document.getElementById('cs-msg').textContent = msg;
+  const yesBtn = document.getElementById('cs-yes');
+  yesBtn.textContent = yesTekst;
+  yesBtn.style.background = boja;
+  yesBtn.style.color = '#fff';
+  _confirmCallback = callback;
+  yesBtn.onclick = () => { zatvoriConfirm(); if (_confirmCallback) _confirmCallback(); };
+  document.getElementById('confirm-splash').classList.add('open');
+}
+
+function zatvoriConfirm() {
+  document.getElementById('confirm-splash').classList.remove('open');
+  _confirmCallback = null;
+}
+
+// Zatvori na klik pozadine
+document.getElementById('confirm-splash').addEventListener('click', e => {
+  if (e.target === document.getElementById('confirm-splash')) zatvoriConfirm();
+});
+
 // ── Enter na login ───────────────────────────────────────
 document.getElementById('inp-pass').addEventListener('keydown', e=>{if(e.key==='Enter')prijava();});
 document.getElementById('inp-email').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('inp-pass').focus();});
@@ -1062,18 +1233,23 @@ if ('serviceWorker' in navigator) {
 }
 
 function pokaziUpdateBanner() {
-  const banner = document.getElementById('update-banner');
-  if (banner) banner.style.display = 'flex';
+  const splash = document.getElementById('update-splash');
+  if (splash) splash.style.display = 'flex';
 }
 
 function primijenUpdate() {
-  const banner = document.getElementById('update-banner');
-  if (banner) banner.style.display = 'none';
+  const splash = document.getElementById('update-splash');
+  if (splash) splash.style.display = 'none';
   navigator.serviceWorker.getRegistration().then(reg => {
     if (reg && reg.waiting) {
       reg.waiting.postMessage('SKIP_WAITING');
     }
   });
+}
+
+function odbijUpdate() {
+  const splash = document.getElementById('update-splash');
+  if (splash) splash.style.display = 'none';
 }
 </script>
 </body>
