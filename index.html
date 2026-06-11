@@ -574,30 +574,65 @@ function showApp() {
 }
 
 // ── Auth ─────────────────────────────────────────────────
+// Timeout helper — ne čekaj Firestore više od 8 sekundi
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
 onAuthStateChanged(auth, async user => {
   if (!user) { showLogin(); return; }
+
+  // Ažuriraj loading poruku
+  const loadingMsg = document.querySelector('#loading-screen p');
+  if (loadingMsg) loadingMsg.textContent = 'Spajanje na bazu...';
+
   try {
-    const snap = await getDoc(doc(db, 'korisnici', user.uid));
+    const snap = await withTimeout(getDoc(doc(db, 'korisnici', user.uid)), 8000);
     if (snap.exists()) {
       trenutniKorisnik = { uid: user.uid, email: user.email, ...snap.data() };
     } else {
-      // Profil još nije kreiran — postavi kao admin (vrijedi za prvog korisnika)
+      // Profil još nije kreiran — postavi kao admin
       trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
-      // Pokušaj automatski kreirati profil
       try {
-        await setDoc(doc(db, 'korisnici', user.uid), {
-          ime: user.email.split('@')[0],
-          email: user.email,
-          role: 'admin'
-        });
-      } catch(e2) { /* Rules možda još nisu postavljene — ok */ }
+        await withTimeout(setDoc(doc(db, 'korisnici', user.uid), {
+          ime: user.email.split('@')[0], email: user.email, role: 'admin'
+        }), 5000);
+      } catch(e2) { /* Rules još nisu postavljene */ }
     }
     showApp();
   } catch(e) {
-    // Firestore rules blokiraju čitanje — prijavi korisnika kao admin fallback
-    console.warn('Firestore read failed, using fallback:', e.code);
-    trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
-    showApp();
+    console.warn('Firestore read failed:', e.message);
+    if (e.message === 'timeout') {
+      // Timeout — pokaži grešku s opcijom ponovnog pokušaja
+      if (loadingMsg) loadingMsg.textContent = '';
+      const ls = document.getElementById('loading-screen');
+      if (ls) ls.innerHTML = `
+        <div style="text-align:center;padding:32px 24px">
+          <div style="width:60px;height:60px;border-radius:50%;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+            <svg style="width:28px;height:28px;stroke:var(--red);fill:none;stroke-width:2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div style="font-size:17px;font-weight:600;margin-bottom:8px">Nema odgovora</div>
+          <div style="font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.6">
+            Nije moguće spojiti se na bazu.<br>Provjerite internetsku vezu.
+          </div>
+          <button onclick="window.location.reload()" style="width:100%;max-width:280px;padding:14px;border-radius:var(--radius);border:none;background:var(--green);color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;margin-bottom:12px">
+            Pokušaj ponovo
+          </button>
+          <br>
+          <button onclick="window.odjava?window.odjava():window.location.reload()" style="background:transparent;border:none;color:var(--text3);font-size:14px;font-family:inherit;cursor:pointer;padding:8px">
+            Odjava
+          </button>
+        </div>`;
+    } else {
+      // Firestore rules greška — fallback kao admin
+      trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
+      showApp();
+    }
   }
 });
 
