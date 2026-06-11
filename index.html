@@ -365,6 +365,12 @@
   </div>
 </div>
 
+<!-- Update banner -->
+<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:500;background:#1a5fa8;color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;gap:12px;font-size:14px;">
+  <span>Nova verzija aplikacije je dostupna.</span>
+  <button onclick="primijenUpdate()" style="background:#fff;color:#1a5fa8;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Osvježi</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Firebase SDK -->
@@ -954,10 +960,50 @@ document.getElementById('inp-pass').addEventListener('keydown', e=>{if(e.key==='
 document.getElementById('inp-email').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('inp-pass').focus();});
 
 </script>
-
 <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js');
+
+      // Provjeri postoji li čekajući novi SW
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nova verzija dostupna — prikaži obavijest
+            pokaziUpdateBanner();
+          }
+        });
+      });
+
+      // Provjeri odmah pri učitavanju
+      if (reg.waiting) {
+        pokaziUpdateBanner();
+      }
+    } catch(e) {}
+  });
+
+  // Kad novi SW preuzme kontrolu — reload stranice
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) { refreshing = true; window.location.reload(); }
+  });
+}
+
+function pokaziUpdateBanner() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.style.display = 'flex';
+}
+
+function primijenUpdate() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.style.display = 'none';
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (reg && reg.waiting) {
+      reg.waiting.postMessage('SKIP_WAITING');
+    }
+  });
 }
 </script>
 </body>
