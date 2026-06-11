@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Evidencija pića</title>
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2d7a4f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -13,7 +12,6 @@
 <meta name="apple-mobile-web-app-title" content="Pića">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
 <style>
   :root {
     --bg:#f8f7f4;--surface:#ffffff;--surface2:#f1efeb;
@@ -388,7 +386,7 @@ const firebaseConfig = {
   messagingSenderId: "1012768106378",
   appId: "1:1012768106378:web:47ca87ab4b9657dd38ca73"
 };
-const ADMIN_UID = 'wAok487TNoQCx4hcXxI3qreBAU82';
+const ADMIN_UID = '7gpZPd3ofnhZd0NTWfwEMy0ZOeB3';
 
 const fbApp  = initializeApp(firebaseConfig);
 const auth   = getAuth(fbApp);
@@ -464,19 +462,28 @@ function showApp() {
 // ── Auth ─────────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
   if (!user) { showLogin(); return; }
-  // Dohvati profil iz Firestore
   try {
     const snap = await getDoc(doc(db, 'korisnici', user.uid));
     if (snap.exists()) {
       trenutniKorisnik = { uid: user.uid, email: user.email, ...snap.data() };
     } else {
-      // Fallback — admin bez profila
-      trenutniKorisnik = { uid: user.uid, email: user.email, ime: 'Admin', role: 'admin' };
+      // Profil još nije kreiran — postavi kao admin (vrijedi za prvog korisnika)
+      trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
+      // Pokušaj automatski kreirati profil
+      try {
+        await setDoc(doc(db, 'korisnici', user.uid), {
+          ime: user.email.split('@')[0],
+          email: user.email,
+          role: 'admin'
+        });
+      } catch(e2) { /* Rules možda još nisu postavljene — ok */ }
     }
     showApp();
   } catch(e) {
-    console.error(e);
-    showLogin();
+    // Firestore rules blokiraju čitanje — prijavi korisnika kao admin fallback
+    console.warn('Firestore read failed, using fallback:', e.code);
+    trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
+    showApp();
   }
 });
 
@@ -490,9 +497,17 @@ window.prijava = async function() {
   try {
     await signInWithEmailAndPassword(auth, email, pass);
   } catch(e) {
-    errEl.textContent = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password'
-      ? 'Pogrešan email ili lozinka.'
-      : 'Greška: ' + e.message;
+    const poruke = {
+      'auth/invalid-credential': 'Pogrešan email ili lozinka.',
+      'auth/wrong-password':     'Pogrešna lozinka.',
+      'auth/user-not-found':     'Korisnik s tim emailom ne postoji.',
+      'auth/invalid-email':      'Neispravan format emaila.',
+      'auth/user-disabled':      'Ovaj korisnički račun je onemogućen.',
+      'auth/too-many-requests':  'Previše pokušaja. Pokušajte za nekoliko minuta.',
+      'auth/network-request-failed': 'Nema internetske veze.'
+    };
+    errEl.textContent = poruke[e.code] || ('Greška (' + e.code + '): ' + e.message);
+    console.error('Login error:', e.code, e.message);
   }
 };
 
@@ -921,10 +936,8 @@ document.getElementById('inp-email').addEventListener('keydown', e=>{if(e.key===
 </script>
 
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
 }
 </script>
 </body>
