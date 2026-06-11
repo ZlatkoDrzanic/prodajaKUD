@@ -648,21 +648,91 @@ function renderArtikli() {
 }
 
 // ---- RECAP ----
+// recapView: 'evidencije' | 'korisnik' | 'artikal'
+let recapView = 'evidencije';
+window.setRecapView = function(v) { recapView = v; render(); };
+
 function renderRecap() {
   const isAdmin = trenutniKorisnik?.role === 'admin';
   const ukupnoSvega = historija.reduce((s,ses)=>s+ses.ukupno,0);
   const ukupnoKom   = historija.reduce((s,ses)=>s+ses.komadi,0);
+
+  // Gumbi za odabir prikaza
+  const btnStyle = (v) => `style="flex:1;padding:9px 6px;border-radius:var(--radius-sm);border:${recapView===v?'1.5px solid var(--blue)':'0.5px solid var(--border)'};background:${recapView===v?'var(--blue-bg)':'transparent'};color:${recapView===v?'var(--blue)':'var(--text2)'};font-size:13px;font-family:inherit;font-weight:${recapView===v?'500':'400'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;"`;
+  const viewBtns = `<div style="display:flex;gap:6px;margin-bottom:14px">
+    <button ${btnStyle('korisnik')} onclick="setRecapView('korisnik')">
+      <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Recap po korisniku
+    </button>
+    <button ${btnStyle('artikal')} onclick="setRecapView('artikal')">
+      <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Recap po artiklu
+    </button>
+    <button ${btnStyle('evidencije')} onclick="setRecapView('evidencije')">
+      <svg style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Recap evidencija
+    </button>
+  </div>`;
+
   const cards = `<div class="metric-row">
     <div class="metric"><div class="metric-label">Ukupna zarada</div><div class="metric-val green">${fmt(ukupnoSvega)}</div></div>
     <div class="metric"><div class="metric-label">Ukupno komada</div><div class="metric-val">${ukupnoKom}</div></div>
   </div>`;
-  if (!historija.length) return cards + `<div class="empty"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Nema zaključenih evidencija.</div>`;
 
+  if (!historija.length) return viewBtns + cards + `<div class="empty"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Nema zaključenih evidencija.</div>`;
+
+  // ── PRIKAZ PO KORISNIKU ──
+  if (recapView === 'korisnik') {
+    const mapa = {};
+    historija.forEach(ses => {
+      const kIme = ses.korisnikIme || 'Nepoznato';
+      if (!mapa[kIme]) mapa[kIme] = { ukupno: 0, komadi: 0, brEvidencija: 0 };
+      mapa[kIme].ukupno      += ses.ukupno;
+      mapa[kIme].komadi      += ses.komadi;
+      mapa[kIme].brEvidencija++;
+    });
+    const rows = Object.entries(mapa)
+      .sort((a,b) => b[1].ukupno - a[1].ukupno)
+      .map(([ime, d]) => `
+        <div class="recap-row" style="align-items:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;margin-right:12px">${esc(ime.charAt(0).toUpperCase())}</div>
+          <div class="card-info">
+            <div class="card-name">${esc(ime)}</div>
+            <div class="card-price">${d.brEvidencija} evidencija · ${d.komadi} kom</div>
+          </div>
+          <div class="recap-total">${fmt(d.ukupno)}</div>
+        </div>`).join('');
+    return viewBtns + cards + rows;
+  }
+
+  // ── PRIKAZ PO ARTIKLU ──
+  if (recapView === 'artikal') {
+    const mapa = {};
+    historija.forEach(ses => {
+      ses.stavke.forEach(s => {
+        if (!mapa[s.naziv]) mapa[s.naziv] = { kolicina: 0, ukupno: 0, cijena: s.cijena };
+        mapa[s.naziv].kolicina += s.kolicina;
+        mapa[s.naziv].ukupno  += s.ukupno;
+      });
+    });
+    const rows = Object.entries(mapa)
+      .sort((a,b) => b[1].ukupno - a[1].ukupno)
+      .map(([naziv, d]) => `
+        <div class="recap-row">
+          <div class="card-info">
+            <div class="card-name">${esc(naziv)}</div>
+            <div class="card-price">${d.kolicina} kom × ${fmt(d.cijena)}</div>
+          </div>
+          <div class="recap-total">${fmt(d.ukupno)}</div>
+        </div>`).join('');
+    return viewBtns + cards + rows + `<div class="total-line"><span>Ukupno prodano</span><span>${fmt(ukupnoSvega)}</span></div>`;
+  }
+
+  // ── PRIKAZ EVIDENCIJA (default) ──
   const sesije = historija.map((ses, idx) => {
     const ukBroj = historija.length - idx;
     const rows = ses.stavke.map(r=>`<div class="recap-row"><div class="card-info"><div class="card-name">${esc(r.naziv)}</div><div class="card-price">${r.kolicina} × ${fmt(r.cijena)}</div></div><div class="recap-total">${fmt(r.ukupno)}</div></div>`).join('');
     const koLabel = ses.korisnikIme ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">· ${esc(ses.korisnikIme)}</span>` : '';
-    // Uredi/briši: admin vidi sve, korisnik vidi samo svoje evidencije
     const isMine = ses.korisnikUid === trenutniKorisnik?.uid;
     const showActions = isAdmin || isMine;
     const actions = showActions ? `<div class="session-actions">
@@ -677,7 +747,7 @@ function renderRecap() {
       <div class="total-line"><span>${ses.komadi} kom · Ukupno</span><span>${fmt(ses.ukupno)}</span></div>
     </div>`;
   }).join('');
-  return cards + sesije;
+  return viewBtns + cards + sesije;
 }
 
 // ── Prodaja actions ──────────────────────────────────────
@@ -732,9 +802,9 @@ window.potvrdiEvidenciju = async function() {
     // Resetiraj tekuću prodaju
     prodaja = {};
     await saveProdaja();
-    odustani(); render();
+    odustani();
+    setTab('prodaja'); // ostani na prodaji, stavke su već na nuli
     toast('Evidencija pohranjena ✓');
-    setTimeout(()=>setTab('recap'), 600);
   } catch(e) { toast('Greška: ' + e.message); }
 };
 
