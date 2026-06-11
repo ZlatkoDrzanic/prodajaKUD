@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evidencija pića</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2d7a4f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pića">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+<style>
+  :root {
+    --bg:#f8f7f4;--surface:#ffffff;--surface2:#f1efeb;
+    --border:#e0ddd8;--border2:#cbc8c2;
+    --text:#1a1917;--text2:#6b6862;--text3:#a09d98;
+    --green:#2d7a4f;--green-bg:#eaf5ef;--green-dark:#1f5c39;
+    --red:#b83232;--red-bg:#fdf0f0;
+    --blue:#1a5fa8;--blue-bg:#eaf0fb;
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;}
+
+  /* LOADING */
+  #loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #loading-screen p{font-size:14px;color:var(--text2);}
+
+  /* LOGIN */
+  #login-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+  .login-logo{width:72px;height:72px;border-radius:20px;background:var(--green);display:flex;align-items:center;justify-content:center;margin-bottom:20px;}
+  .login-logo svg{width:36px;height:36px;stroke:#fff;fill:none;stroke-width:1.6;}
+  .login-title{font-size:22px;font-weight:700;letter-spacing:-0.4px;margin-bottom:4px;}
+  .login-sub{font-size:14px;color:var(--text2);margin-bottom:32px;}
+  .login-box{width:100%;max-width:340px;}
+  .login-box input{width:100%;padding:13px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:16px;font-family:inherit;background:var(--surface);color:var(--text);margin-bottom:10px;outline:none;transition:border-color 0.15s;}
+  .login-box input:focus{border-color:var(--blue);}
+  .login-btn{width:100%;padding:14px;border-radius:var(--radius);border:none;background:var(--green);color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(45,122,79,0.25);}
+  .login-btn:active{background:var(--green-dark);}
+  .login-err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
+
+  /* MAIN APP */
+  #main-app{display:none;}
+  #app{max-width:460px;margin:0 auto;padding-bottom:40px;}
+  .header{padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between;}
+  .header-left{display:flex;flex-direction:column;}
+  .header-title{font-size:19px;font-weight:600;letter-spacing:-0.3px;}
+  .header-sub{font-size:12px;color:var(--text3);margin-top:2px;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .badge{background:var(--surface2);border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:13px;color:var(--text2);}
+
+  /* user chip */
+  .user-chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border:0.5px solid var(--border);border-radius:20px;padding:5px 10px 5px 6px;font-size:13px;color:var(--text2);cursor:pointer;position:relative;user-select:none;}
+  .user-avatar{width:22px;height:22px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+  .user-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,0.10);min-width:180px;z-index:200;display:none;overflow:hidden;}
+  .user-menu.open{display:block;}
+  .menu-item{padding:12px 16px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text);}
+  .menu-item:hover{background:var(--surface2);}
+  .menu-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;flex-shrink:0;}
+  .menu-item.danger{color:var(--red);}
+  .menu-divider{height:0.5px;background:var(--border);margin:4px 0;}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;padding:12px 16px;border-bottom:0.5px solid var(--border);}
+  .tab{flex:1;padding:9px 4px;border-radius:var(--radius-sm);border:0.5px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;transition:all 0.12s;}
+  .tab.active{border:1.5px solid var(--blue);background:var(--blue-bg);color:var(--blue);font-weight:500;}
+  .tab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;}
+  .content{padding:16px;}
+
+  /* cards */
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .card-info{flex:1;min-width:0;}
+  .card-name{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card-price{font-size:13px;color:var(--text2);margin-top:2px;}
+
+  /* counter */
+  .counter{display:flex;align-items:center;gap:8px;}
+  .count-num{min-width:28px;text-align:center;font-size:18px;font-weight:500;}
+  .count-num.zero{color:var(--text3);}
+  .btn-round{width:36px;height:36px;border-radius:var(--radius-sm);border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .btn-round:active{transform:scale(0.91);}
+  .btn-round.add{background:var(--green-bg);border-color:#b2d9c0;}
+  .btn-round.add svg{stroke:var(--green);}
+  .btn-round.sub svg{stroke:var(--red);}
+  .btn-round:disabled{opacity:0.32;cursor:default;}
+  .btn-round svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+
+  /* form */
+  .form-box{background:var(--surface2);border-radius:var(--radius);padding:14px;margin-bottom:16px;}
+  .form-label{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:10px;}
+  input[type=text],input[type=number],input[type=password],input[type=email]{width:100%;padding:10px 12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;background:var(--surface);color:var(--text);margin-bottom:8px;outline:none;transition:border-color 0.15s;}
+  input:focus{border-color:var(--blue);}
+  .btn-row{display:flex;gap:8px;}
+  .btn{flex:1;padding:10px;border-radius:var(--radius-sm);font-size:14px;font-family:inherit;cursor:pointer;font-weight:500;border:0.5px solid var(--border);background:transparent;color:var(--text2);}
+  .btn:active{transform:scale(0.97);}
+  .btn.primary{background:var(--green-bg);border-color:#b2d9c0;color:var(--green);}
+  .btn.neutral{flex:0 0 auto;padding:10px 14px;}
+
+  /* btn-icon */
+  .btn-icon{width:34px;height:34px;border-radius:var(--radius-sm);border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .btn-icon:active{transform:scale(0.91);}
+  .btn-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;}
+  .btn-icon.edit svg{stroke:var(--text2);}
+  .btn-icon.del svg{stroke:var(--red);}
+
+  /* recap */
+  .metric-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .metric{background:var(--surface2);border-radius:var(--radius-sm);padding:14px 12px;}
+  .metric-label{font-size:12px;color:var(--text2);margin-bottom:4px;}
+  .metric-val{font-size:20px;font-weight:600;}
+  .metric-val.green{color:var(--green);}
+  .recap-row{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;margin-bottom:9px;}
+  .recap-row .card-info{flex:1;}
+  .recap-total{font-weight:500;font-size:16px;color:var(--green);}
+  .session-block{margin-bottom:20px;}
+  .session-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;font-size:13px;color:var(--text2);}
+  .session-header strong{font-size:14px;color:var(--text);}
+  .session-actions{display:flex;gap:6px;}
+  .ses-btn{width:32px;height:32px;border-radius:var(--radius-sm);border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ses-btn:active{transform:scale(0.91);}
+  .ses-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;}
+  .ses-btn.edit svg{stroke:var(--text2);}
+  .ses-btn.del svg{stroke:var(--red);}
+  .total-line{border-top:0.5px solid var(--border2);padding-top:12px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;}
+  .total-line span:first-child{font-weight:500;font-size:15px;}
+  .total-line span:last-child{font-weight:600;font-size:18px;color:var(--green);}
+
+  /* empty */
+  .empty{text-align:center;padding:36px 16px;color:var(--text2);font-size:14px;line-height:1.6;}
+  .empty svg{width:36px;height:36px;stroke:var(--text3);fill:none;stroke-width:1.4;display:block;margin:0 auto 10px;}
+
+  /* toast */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1917;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;transition:transform 0.25s ease;pointer-events:none;z-index:300;white-space:nowrap;}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
+  /* zaključi */
+  .zakljuci-bar{position:sticky;bottom:0;background:linear-gradient(to top,var(--bg) 80%,transparent);padding:12px 0 4px;margin-top:8px;}
+  .zakljuci-btn{width:100%;padding:14px;border-radius:var(--radius);border:none;background:var(--green);color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 12px rgba(45,122,79,0.25);}
+  .zakljuci-btn:active{transform:scale(0.98);background:var(--green-dark);}
+  .zakljuci-btn svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.2;}
+
+  /* overlay */
+  .overlay-screen{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none;flex-direction:column;}
+  .overlay-screen.open{display:flex;}
+  .ov-header{padding:18px 16px 14px;border-bottom:0.5px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:2;}
+  .ov-title{font-size:18px;font-weight:600;letter-spacing:-0.3px;}
+  .ov-sub{font-size:13px;color:var(--text2);margin-top:3px;}
+  .ov-body{flex:1;padding:16px;}
+  .ov-footer{padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:0.5px solid var(--border);display:flex;flex-direction:column;gap:10px;position:sticky;bottom:0;}
+  .btn-odustani{width:100%;padding:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);font-size:15px;font-family:inherit;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-odustani:active{background:var(--surface2);}
+  .btn-potvrdi{width:100%;padding:14px;border-radius:var(--radius);border:none;background:var(--green);color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 12px rgba(45,122,79,0.22);}
+  .btn-potvrdi:active{background:var(--green-dark);transform:scale(0.98);}
+  .btn-potvrdi svg,.btn-odustani svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;}
+  .pregled-summary-card{background:var(--green-bg);border:0.5px solid #b2d9c0;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+  .pregled-summary-card .label{font-size:13px;color:var(--green);}
+  .pregled-summary-card .amount{font-size:22px;font-weight:700;color:var(--green);}
+  .pregled-summary-card .komadi{font-size:13px;color:var(--green);opacity:0.75;margin-top:2px;}
+  .edit-row{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .edit-row .card-info{flex:1;min-width:0;}
+
+  /* korisnici */
+  .user-row{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .user-row-info{flex:1;}
+  .user-row-name{font-weight:500;font-size:15px;}
+  .role-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+  .role-badge.admin{background:#fef3e8;color:#b85c00;border:0.5px solid #f5c48a;}
+  .role-badge.user{background:var(--blue-bg);color:var(--blue);border:0.5px solid #aac8ee;}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface);border-radius:var(--radius);padding:20px;width:100%;max-width:340px;}
+  .modal-title{font-size:17px;font-weight:600;margin-bottom:4px;}
+  .modal-sub{font-size:13px;color:var(--text2);margin-bottom:16px;}
+  .modal input{margin-bottom:10px;}
+  .modal-btn-row{display:flex;gap:8px;margin-top:4px;}
+  .modal-btn{flex:1;padding:11px;border-radius:var(--radius-sm);font-size:14px;font-family:inherit;font-weight:500;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text2);}
+  .modal-btn.ok{background:var(--green-bg);border-color:#b2d9c0;color:var(--green);}
+  .modal-err{font-size:12px;color:var(--red);margin-top:-4px;margin-bottom:8px;min-height:16px;}
+
+  /* QR overlay */
+  .qr-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:150;display:none;align-items:center;justify-content:center;padding:24px; }
+  .qr-overlay.open { display:flex; }
+  .qr-box { background:var(--surface);border-radius:var(--radius);padding:24px;max-width:320px;width:100%;text-align:center; }
+  .qr-title { font-size:17px;font-weight:600;margin-bottom:4px; }
+  .qr-sub { font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5; }
+  .qr-img { width:220px;height:220px;border-radius:var(--radius-sm);margin:0 auto 16px; }
+  .qr-url { font-size:12px;color:var(--text3);word-break:break-all;margin-bottom:16px; }
+  .qr-close { width:100%;padding:12px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);font-size:14px;font-family:inherit;cursor:pointer; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Spajanje na bazu...</p>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24"><path d="M8 6V4a4 4 0 0 1 8 0v2"/><rect x="2" y="6" width="20" height="16" rx="2"/></svg>
+  </div>
+  <div class="login-title">Evidencija pića</div>
+  <div class="login-sub">Prijavite se</div>
+  <div class="login-box">
+    <input type="email" id="inp-email" placeholder="Email" autocomplete="email" autocapitalize="off">
+    <input type="password" id="inp-pass" placeholder="Lozinka" autocomplete="current-password">
+    <button class="login-btn" onclick="prijava()">Prijava</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app">
+  <div id="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="header-title">Evidencija pića</div>
+        <div class="header-sub" id="sync-status">—</div>
+      </div>
+      <div class="header-right">
+        <div class="badge" id="total-badge">0 stavki</div>
+        <div class="user-chip" id="user-chip" onclick="toggleMenu()">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <span id="user-chip-name">...</span>
+          <svg style="width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          <div class="user-menu" id="user-menu">
+            <div class="menu-item" id="menu-korisnici" onclick="event.stopPropagation();otvoriKorisnike()" style="display:none">
+              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Upravljanje korisnicima
+            </div>
+            <div class="menu-item" id="menu-qr" onclick="event.stopPropagation();otvoriQR()" style="display:none">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="5" y="5" width="3" height="3"/><rect x="16" y="5" width="3" height="3"/><rect x="5" y="16" width="3" height="3"/><path d="M14 14h3v3h-3z"/><path d="M17 17h3v3h-3z"/><path d="M14 17h3"/><path d="M17 14v3"/></svg>
+              QR — onboarding korisnika
+            </div>
+            <div class="menu-divider" id="menu-divider" style="display:none"></div>
+            <div class="menu-item danger" onclick="event.stopPropagation();odjava()">
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Odjava
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="setTab('prodaja')" id="tab-prodaja">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Prodaja
+      </button>
+      <button class="tab" onclick="setTab('artikli')" id="tab-artikli" style="display:none">
+        <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Artikli
+      </button>
+      <button class="tab" onclick="setTab('recap')" id="tab-recap">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Recap
+      </button>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- PREGLED overlay -->
+<div class="overlay-screen" id="pregled-screen">
+  <div class="ov-header"><div class="ov-title">Pregled narudžbe</div><div class="ov-sub">Provjerite stavke prije pohrane</div></div>
+  <div class="ov-body" id="pregled-body"></div>
+  <div class="ov-footer">
+    <button class="btn-odustani" onclick="odustani()">
+      <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Odustani / izmjeni
+    </button>
+    <button class="btn-potvrdi" onclick="potvrdiEvidenciju()">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      Zaključi / evidentiraj
+    </button>
+  </div>
+</div>
+
+<!-- EDIT SESIJE overlay -->
+<div class="overlay-screen" id="edit-screen">
+  <div class="ov-header"><div class="ov-title" id="edit-title">Uredi evidenciju</div><div class="ov-sub">Mijenjajte količine ili uklonite stavku</div></div>
+  <div class="ov-body" id="edit-body"></div>
+  <div class="ov-footer">
+    <button class="btn-odustani" onclick="zatvoriEdit()">
+      <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Odustani
+    </button>
+    <button class="btn-potvrdi" onclick="spremiEdit()">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      Spremi izmjene
+    </button>
+  </div>
+</div>
+
+<!-- KORISNICI overlay -->
+<div class="overlay-screen" id="korisnici-screen">
+  <div class="ov-header"><div class="ov-title">Upravljanje korisnicima</div><div class="ov-sub">Dodajte ili uklonite korisnike</div></div>
+  <div class="ov-body" id="korisnici-body"></div>
+  <div class="ov-footer">
+    <button class="btn-odustani" onclick="zatvoriKorisnike()">
+      <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zatvori
+    </button>
+  </div>
+</div>
+
+<!-- MODAL novi korisnik -->
+<div class="modal-backdrop" id="modal-korisnik">
+  <div class="modal">
+    <div class="modal-title">Novi korisnik</div>
+    <div class="modal-sub">Korisnik se prijavljuje emailom i lozinkom.</div>
+    <input type="text" id="m-ime" placeholder="Ime (prikazuje se u aplikaciji)" autocomplete="off">
+    <input type="email" id="m-email" placeholder="Email" autocomplete="off" autocapitalize="off">
+    <input type="password" id="m-password" placeholder="Lozinka (min. 6 znakova)" autocomplete="new-password">
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Ovlasti</div>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:14px">
+          <input type="radio" name="m-role" id="m-role-user" value="user" checked style="width:auto;margin:0;padding:0;margin-bottom:0"> Korisnik
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:14px">
+          <input type="radio" name="m-role" id="m-role-admin" value="admin" style="width:auto;margin:0;padding:0;margin-bottom:0"> Admin
+        </label>
+      </div>
+    </div>
+    <div class="modal-err" id="modal-err"></div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="zatvoriModal()">Odustani</button>
+      <button class="modal-btn ok" id="modal-ok-btn" onclick="dodajKorisnika()">Dodaj korisnika</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL promjena lozinke -->
+<div class="modal-backdrop" id="modal-lozinka">
+  <div class="modal">
+    <div class="modal-title">Promjena lozinke</div>
+    <div class="modal-sub" id="modal-loz-sub">Unesite novu lozinku.</div>
+    <input type="password" id="m-newpass" placeholder="Nova lozinka (min. 6 znakova)" autocomplete="new-password">
+    <div class="modal-err" id="modal-loz-err"></div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="zatvoriModalLoz()">Odustani</button>
+      <button class="modal-btn ok" onclick="spremiLozinku()">Spremi</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR overlay (samo admin) -->
+<div class="qr-overlay" id="qr-overlay" onclick="zatvoriQR()">
+  <div class="qr-box" onclick="event.stopPropagation()">
+    <div class="qr-title">Onboarding korisnika</div>
+    <div class="qr-sub">Novi korisnik skenira QR kod i otvara aplikaciju. Admin mu zatim kreira račun.</div>
+    <img class="qr-img" id="qr-img" src="" alt="QR kod">
+    <div class="qr-url">https://zlatkodrzanic.github.io/prodajaKUD</div>
+    <button class="qr-close" onclick="zatvoriQR()">Zatvori</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+         createUserWithEmailAndPassword, updatePassword }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc,
+         addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── Firebase config ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCnoV-hZVHQHZ7OmbkZCwEBEIeC_B2LcLE",
+  authDomain: "prodajakud.firebaseapp.com",
+  projectId: "prodajakud",
+  storageBucket: "prodajakud.firebasestorage.app",
+  messagingSenderId: "1012768106378",
+  appId: "1:1012768106378:web:47ca87ab4b9657dd38ca73"
+};
+const ADMIN_UID = 'wAok487TNoQCx4hcXxI3qreBAU82';
+
+const fbApp  = initializeApp(firebaseConfig);
+const auth   = getAuth(fbApp);
+const db     = getFirestore(fbApp);
+
+// ── State ────────────────────────────────────────────────
+let trenutniKorisnik = null;  // { uid, ime, email, role }
+let artikli   = [];           // [{ id, naziv, cijena }]
+let prodaja   = {};           // { artikalId: count }
+let historija = [];           // [{ id, stavke, ukupno, komadi, korisnik, ts }]
+let sviKorisnici = [];        // za admin prikaz
+let currentTab = 'prodaja';
+let editId = null;
+let editSesijaId = null, editStavke = [];
+let lozinkaCiljUid = null;
+let unsubs = [];              // Firestore listener unsubscribe fns
+
+// ── Utils ────────────────────────────────────────────────
+const fmt = n => n.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtDate = ts => {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('hr-HR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+};
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+function setSync(msg) {
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = msg;
+}
+function updateBadge() {
+  const n = Object.values(prodaja).reduce((s,v)=>s+v,0);
+  const el = document.getElementById('total-badge');
+  if (el) el.textContent = n + (n===1?' stavka':' stavki');
+}
+
+// ── Screens ──────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('login-screen').style.display   = 'none';
+  document.getElementById('main-app').style.display       = 'none';
+}
+function showLogin() {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display   = 'flex';
+  document.getElementById('main-app').style.display       = 'none';
+}
+function showApp() {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display   = 'none';
+  document.getElementById('main-app').style.display       = 'block';
+
+  const isAdmin = trenutniKorisnik.role === 'admin';
+  const ime = trenutniKorisnik.ime || trenutniKorisnik.email;
+  document.getElementById('user-avatar').textContent = ime.charAt(0).toUpperCase();
+  document.getElementById('user-avatar').style.background = isAdmin ? '#b85c00' : 'var(--green)';
+  document.getElementById('user-chip-name').textContent = ime;
+  document.getElementById('tab-artikli').style.display   = isAdmin ? '' : 'none';
+  document.getElementById('menu-korisnici').style.display = isAdmin ? '' : 'none';
+  document.getElementById('menu-qr').style.display        = isAdmin ? '' : 'none';
+  document.getElementById('menu-divider').style.display   = isAdmin ? '' : 'none';
+
+  if (!isAdmin && currentTab === 'artikli') currentTab = 'prodaja';
+  startListeners();
+  setTab(currentTab);
+}
+
+// ── Auth ─────────────────────────────────────────────────
+onAuthStateChanged(auth, async user => {
+  if (!user) { showLogin(); return; }
+  // Dohvati profil iz Firestore
+  try {
+    const snap = await getDoc(doc(db, 'korisnici', user.uid));
+    if (snap.exists()) {
+      trenutniKorisnik = { uid: user.uid, email: user.email, ...snap.data() };
+    } else {
+      // Fallback — admin bez profila
+      trenutniKorisnik = { uid: user.uid, email: user.email, ime: 'Admin', role: 'admin' };
+    }
+    showApp();
+  } catch(e) {
+    console.error(e);
+    showLogin();
+  }
+});
+
+window.prijava = async function() {
+  const email = document.getElementById('inp-email').value.trim();
+  const pass  = document.getElementById('inp-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'Unesite email.'; return; }
+  if (!pass)  { errEl.textContent = 'Unesite lozinku.'; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    errEl.textContent = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password'
+      ? 'Pogrešan email ili lozinka.'
+      : 'Greška: ' + e.message;
+  }
+};
+
+window.odjava = async function() {
+  zatvoriMenu();
+  stopListeners();
+  artikli=[]; prodaja={}; historija=[]; sviKorisnici=[];
+  trenutniKorisnik=null;
+  await signOut(auth);
+  document.getElementById('inp-pass').value='';
+  document.getElementById('login-err').textContent='';
+};
+
+// ── Firestore listeners ──────────────────────────────────
+function startListeners() {
+  stopListeners();
+
+  // Artikli
+  const qA = query(collection(db,'artikli'), orderBy('naziv'));
+  unsubs.push(onSnapshot(qA, snap => {
+    artikli = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (currentTab==='prodaja'||currentTab==='artikli') render();
+    setSync('Sinkronizirano · ' + new Date().toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'}));
+  }));
+
+  // Evidencije
+  const qH = query(collection(db,'evidencije'), orderBy('ts','desc'));
+  unsubs.push(onSnapshot(qH, snap => {
+    historija = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (currentTab==='recap') render();
+    setSync('Sinkronizirano · ' + new Date().toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'}));
+  }));
+
+  // Korisnici (admin only — Firestore rules dozvoljavaju samo adminu)
+  if (trenutniKorisnik.role === 'admin') {
+    unsubs.push(onSnapshot(collection(db,'korisnici'), snap => {
+      sviKorisnici = snap.docs.map(d => ({uid:d.id,...d.data()}));
+    }));
+  }
+
+  // Tekuća prodaja (vlastita — po UID)
+  const prodajaRef = doc(db, 'tekuca_prodaja', trenutniKorisnik.uid);
+  unsubs.push(onSnapshot(prodajaRef, snap => {
+    prodaja = snap.exists() ? (snap.data().stavke || {}) : {};
+    updateBadge();
+    if (currentTab==='prodaja') render();
+  }));
+}
+
+function stopListeners() {
+  unsubs.forEach(u => u());
+  unsubs = [];
+}
+
+// ── Save helpers ─────────────────────────────────────────
+async function saveProdaja() {
+  const ref = doc(db, 'tekuca_prodaja', trenutniKorisnik.uid);
+  await setDoc(ref, { stavke: prodaja, korisnik: trenutniKorisnik.uid, azurirano: serverTimestamp() });
+  updateBadge();
+}
+
+// ── Navigation ───────────────────────────────────────────
+window.setTab = function(t) {
+  if (t==='artikli' && trenutniKorisnik?.role!=='admin') t='prodaja';
+  currentTab = t; editId = null;
+  ['prodaja','artikli','recap'].forEach(id => {
+    const el = document.getElementById('tab-'+id);
+    if (el) el.classList.toggle('active', id===t);
+  });
+  render();
+};
+window.toggleMenu = function() { document.getElementById('user-menu').classList.toggle('open'); };
+window.zatvoriMenu = function() { document.getElementById('user-menu').classList.remove('open'); };
+document.addEventListener('click', e => {
+  if (!document.getElementById('user-chip')?.contains(e.target)) zatvoriMenu();
+});
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  const el = document.getElementById('content');
+  if (!el) return;
+  el.innerHTML = currentTab==='prodaja' ? renderProdaja()
+               : currentTab==='artikli' ? renderArtikli()
+               : renderRecap();
+}
+
+// ---- PRODAJA ----
+function renderProdaja() {
+  if (!artikli.length) return `<div class="empty"><svg viewBox="0 0 24 24"><path d="M8 6V4a4 4 0 0 1 8 0v2"/><rect x="2" y="6" width="20" height="16" rx="2"/></svg>Nema artikala.<br>Admin dodaje artikle u kartici <strong>Artikli</strong>.</div>`;
+  const rows = artikli.map(a => {
+    const kol = prodaja[a.id] || 0;
+    return `<div class="card">
+      <div class="card-info"><div class="card-name">${esc(a.naziv)}</div><div class="card-price">${fmt(a.cijena)}</div></div>
+      <div class="counter">
+        <button class="btn-round sub" onclick="ukloni('${a.id}')" ${!kol?'disabled':''}>
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <div class="count-num ${!kol?'zero':''}">${kol}</div>
+        <button class="btn-round add" onclick="dodaj('${a.id}')">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  const ukupnoStavki = Object.values(prodaja).reduce((s,v)=>s+v,0);
+  const bar = ukupnoStavki ? `<div class="zakljuci-bar"><button class="zakljuci-btn" onclick="otvoriPregled()"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Zaključi / evidentiraj</button></div>` : '';
+  return rows + bar;
+}
+
+// ---- ARTIKLI (admin only) ----
+function renderArtikli() {
+  const a = editId ? artikli.find(x=>x.id===editId)||{} : {};
+  const cancel = editId ? `<button class="btn neutral" onclick="cancelEdit()">Odustani</button>` : '';
+  const list = artikli.length ? artikli.map(a => `
+    <div class="card">
+      <div class="card-info"><div class="card-name">${esc(a.naziv)}</div><div class="card-price">${fmt(a.cijena)}</div></div>
+      <button class="btn-icon edit" onclick="startEdit('${a.id}')"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="btn-icon del" onclick="obrisiArtikal('${a.id}')"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+    </div>`).join('') :
+    `<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>Nema artikala.</div>`;
+  return `<div class="form-box">
+    <div class="form-label">${editId?'Uredi artikal':'Novi artikal'}</div>
+    <input type="text" id="inp-naziv" placeholder="Naziv (npr. Pivo, Vino, Kava...)" value="${esc(a.naziv||'')}">
+    <input type="number" id="inp-cijena" placeholder="Cijena (€)" value="${a.cijena||''}" step="0.01" min="0" inputmode="decimal">
+    <div class="btn-row"><button class="btn primary" onclick="spremiArtikal()">${editId?'Spremi izmjene':'Dodaj artikal'}</button>${cancel}</div>
+  </div>${list}`;
+}
+
+// ---- RECAP ----
+function renderRecap() {
+  const isAdmin = trenutniKorisnik?.role === 'admin';
+  const ukupnoSvega = historija.reduce((s,ses)=>s+ses.ukupno,0);
+  const ukupnoKom   = historija.reduce((s,ses)=>s+ses.komadi,0);
+  const cards = `<div class="metric-row">
+    <div class="metric"><div class="metric-label">Ukupna zarada</div><div class="metric-val green">${fmt(ukupnoSvega)}</div></div>
+    <div class="metric"><div class="metric-label">Ukupno komada</div><div class="metric-val">${ukupnoKom}</div></div>
+  </div>`;
+  if (!historija.length) return cards + `<div class="empty"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Nema zaključenih evidencija.</div>`;
+
+  const sesije = historija.map((ses, idx) => {
+    const ukBroj = historija.length - idx;
+    const rows = ses.stavke.map(r=>`<div class="recap-row"><div class="card-info"><div class="card-name">${esc(r.naziv)}</div><div class="card-price">${r.kolicina} × ${fmt(r.cijena)}</div></div><div class="recap-total">${fmt(r.ukupno)}</div></div>`).join('');
+    const koLabel = ses.korisnikIme ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">· ${esc(ses.korisnikIme)}</span>` : '';
+    const actions = isAdmin ? `<div class="session-actions">
+      <button class="ses-btn edit" onclick="otvoriEditSesije('${ses.id}')" title="Uredi"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="ses-btn del" onclick="obrisiSesiju('${ses.id}')" title="Obriši"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+    </div>` : '';
+    return `<div class="session-block">
+      <div class="session-header">
+        <div><strong>Evidencija #${ukBroj}</strong>${koLabel}<div style="font-size:12px;margin-top:2px">${fmtDate(ses.ts)}</div></div>
+        ${actions}
+      </div>${rows}
+      <div class="total-line"><span>${ses.komadi} kom · Ukupno</span><span>${fmt(ses.ukupno)}</span></div>
+    </div>`;
+  }).join('');
+  return cards + sesije;
+}
+
+// ── Prodaja actions ──────────────────────────────────────
+window.dodaj = async function(id) {
+  prodaja[id] = (prodaja[id]||0) + 1;
+  render(); await saveProdaja();
+};
+window.ukloni = async function(id) {
+  if (!prodaja[id]) return;
+  prodaja[id]--;
+  if (prodaja[id] <= 0) delete prodaja[id];
+  render(); await saveProdaja();
+};
+
+// ── Pregled / Zaključi ───────────────────────────────────
+window.otvoriPregled = function() {
+  const stavke = artikli.map(a=>{
+    const kolicina = prodaja[a.id]||0;
+    return kolicina>0 ? {naziv:a.naziv,cijena:a.cijena,kolicina,ukupno:kolicina*a.cijena} : null;
+  }).filter(Boolean).sort((a,b)=>b.ukupno-a.ukupno);
+  if (!stavke.length) { toast('Nema stavki'); return; }
+  const ukupno = stavke.reduce((s,r)=>s+r.ukupno,0);
+  const komadi = stavke.reduce((s,r)=>s+r.kolicina,0);
+  const rows = stavke.map(r=>`<div class="recap-row"><div class="card-info"><div class="card-name">${esc(r.naziv)}</div><div class="card-price">${r.kolicina} × ${fmt(r.cijena)}</div></div><div class="recap-total">${fmt(r.ukupno)}</div></div>`).join('');
+  document.getElementById('pregled-body').innerHTML = `
+    <div class="pregled-summary-card"><div><div class="label">Za evidenciju</div><div class="amount">${fmt(ukupno)}</div><div class="komadi">${komadi} komada</div></div>
+    <svg viewBox="0 0 24 24" style="width:32px;height:32px;stroke:#2d7a4f;fill:none;stroke-width:1.5;opacity:0.6"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><polyline points="9 12 11 14 15 10"/></svg></div>
+    ${rows}
+    <div class="total-line" style="margin-top:0"><span>${komadi} kom · Ukupno</span><span>${fmt(ukupno)}</span></div>`;
+  document.getElementById('pregled-screen').classList.add('open');
+  document.body.style.overflow='hidden';
+};
+window.odustani = function() {
+  document.getElementById('pregled-screen').classList.remove('open');
+  document.body.style.overflow='';
+};
+window.potvrdiEvidenciju = async function() {
+  const stavke = artikli.map(a=>{
+    const kolicina = prodaja[a.id]||0;
+    return kolicina>0 ? {naziv:a.naziv,cijena:a.cijena,kolicina,ukupno:kolicina*a.cijena} : null;
+  }).filter(Boolean).sort((a,b)=>b.ukupno-a.ukupno);
+  if (!stavke.length) return;
+  const ukupno = stavke.reduce((s,r)=>s+r.ukupno,0);
+  const komadi = stavke.reduce((s,r)=>s+r.kolicina,0);
+  try {
+    await addDoc(collection(db,'evidencije'), {
+      stavke, ukupno, komadi,
+      korisnikUid: trenutniKorisnik.uid,
+      korisnikIme: trenutniKorisnik.ime || trenutniKorisnik.email,
+      ts: serverTimestamp()
+    });
+    // Resetiraj tekuću prodaju
+    prodaja = {};
+    await saveProdaja();
+    odustani(); render();
+    toast('Evidencija pohranjena ✓');
+    setTimeout(()=>setTab('recap'), 600);
+  } catch(e) { toast('Greška: ' + e.message); }
+};
+
+// ── Artikli actions ──────────────────────────────────────
+window.spremiArtikal = async function() {
+  const naziv  = document.getElementById('inp-naziv').value.trim();
+  const cijena = parseFloat(document.getElementById('inp-cijena').value.replace(',','.'));
+  if (!naziv||isNaN(cijena)||cijena<=0) { toast('Unesite naziv i ispravnu cijenu'); return; }
+  try {
+    if (editId) {
+      await updateDoc(doc(db,'artikli',editId), {naziv,cijena});
+      editId=null; toast('Artikal ažuriran');
+    } else {
+      await addDoc(collection(db,'artikli'), {naziv,cijena});
+      toast('Artikal dodan');
+    }
+    render();
+  } catch(e) { toast('Greška: '+e.message); }
+};
+window.startEdit  = function(id){editId=id;render();setTimeout(()=>{const el=document.getElementById('inp-naziv');if(el)el.focus();},50);};
+window.cancelEdit = function(){editId=null;render();};
+window.obrisiArtikal = async function(id) {
+  if (!confirm('Obrisati artikal?')) return;
+  await deleteDoc(doc(db,'artikli',id));
+  toast('Artikal obrisan');
+};
+
+// ── Edit sesije ──────────────────────────────────────────
+window.otvoriEditSesije = function(id) {
+  editSesijaId = id;
+  const ses = historija.find(h=>h.id===id);
+  if (!ses) return;
+  editStavke = ses.stavke.map(s=>({...s}));
+  const idx = historija.findIndex(h=>h.id===id);
+  document.getElementById('edit-title').textContent = 'Uredi evidenciju #' + (historija.length - idx);
+  renderEditBody();
+  document.getElementById('edit-screen').classList.add('open');
+  document.body.style.overflow='hidden';
+};
+function renderEditBody() {
+  const rows = editStavke.map((r,i)=>`
+    <div class="edit-row"><div class="card-info"><div class="card-name">${esc(r.naziv)}</div><div class="card-price">${fmt(r.cijena)} / kom</div></div>
+    <div class="counter">
+      <button class="btn-round sub" onclick="editMinus(${i})" ${r.kolicina<=0?'disabled':''}><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <div class="count-num ${r.kolicina<=0?'zero':''}">${r.kolicina}</div>
+      <button class="btn-round add" onclick="editPlus(${i})"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    </div></div>`).join('');
+  const uk=editStavke.reduce((s,r)=>s+r.kolicina*r.cijena,0);
+  const km=editStavke.reduce((s,r)=>s+r.kolicina,0);
+  document.getElementById('edit-body').innerHTML = rows +
+    `<div class="total-line" style="margin-top:8px"><span>${km} kom · Ukupno</span><span>${fmt(uk)}</span></div>
+     <p style="font-size:12px;color:var(--text3);margin-top:10px;text-align:center">Stavke s količinom 0 bit će uklonjene pri spremanju.</p>`;
+}
+window.editPlus  = function(i){editStavke[i].kolicina++;renderEditBody();};
+window.editMinus = function(i){if(editStavke[i].kolicina<=0)return;editStavke[i].kolicina--;renderEditBody();};
+window.zatvoriEdit = function(){document.getElementById('edit-screen').classList.remove('open');document.body.style.overflow='';editSesijaId=null;editStavke=[];};
+window.spremiEdit = async function() {
+  const stavke = editStavke.filter(r=>r.kolicina>0).map(r=>({...r,ukupno:r.kolicina*r.cijena}));
+  if (!stavke.length) {
+    if (!confirm('Sve stavke su na 0. Obrisati cijelu evidenciju?')) return;
+    await deleteDoc(doc(db,'evidencije',editSesijaId));
+    zatvoriEdit(); toast('Evidencija obrisana'); return;
+  }
+  const uk=stavke.reduce((s,r)=>s+r.ukupno,0), km=stavke.reduce((s,r)=>s+r.kolicina,0);
+  await updateDoc(doc(db,'evidencije',editSesijaId),{stavke,ukupno:uk,komadi:km});
+  zatvoriEdit(); toast('Evidencija ažurirana ✓');
+};
+window.obrisiSesiju = async function(id) {
+  if (!confirm('Obrisati ovu evidenciju?')) return;
+  await deleteDoc(doc(db,'evidencije',id));
+  toast('Evidencija obrisana');
+};
+
+// ── Korisnici (admin) ────────────────────────────────────
+window.otvoriKorisnike = function() {
+  zatvoriMenu(); renderKorisnike();
+  document.getElementById('korisnici-screen').classList.add('open');
+  document.body.style.overflow='hidden';
+};
+window.zatvoriKorisnike = function() {
+  document.getElementById('korisnici-screen').classList.remove('open');
+  document.body.style.overflow='';
+};
+function renderKorisnike() {
+  const rows = sviKorisnici.map(k => {
+    const isSelf = k.uid === trenutniKorisnik?.uid;
+    const roleLabel = k.role==='admin'
+      ? '<span class="role-badge admin">Admin</span>'
+      : '<span class="role-badge user">Korisnik</span>';
+    const toggleBtn = !isSelf ? `<button class="btn-icon edit" onclick="toggleRole('${k.uid}','${k.role}')" title="Promijeni ovlast">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 23 15 17 15"/><line x1="20" y1="18" x2="20" y2="12"/></svg>
+    </button>` : '';
+    const delBtn = !isSelf ? `<button class="btn-icon del" onclick="obrisiKorisnika('${k.uid}','${esc(k.ime||k.email)}')" title="Obriši">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>` : '';
+    const avatar = `<div style="width:36px;height:36px;border-radius:50%;background:${k.role==='admin'?'#b85c00':'var(--green)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0">${esc((k.ime||k.email||'?').charAt(0).toUpperCase())}</div>`;
+    return `<div class="user-row">${avatar}
+      <div class="user-row-info">
+        <div class="user-row-name">${esc(k.ime||k.email)}${isSelf?' <span style="font-size:11px;color:var(--text3)">(vi)</span>':''}</div>
+        <div style="margin-top:4px;font-size:12px;color:var(--text3)">${esc(k.email||'')}</div>
+        <div style="margin-top:4px">${roleLabel}</div>
+      </div>
+      ${toggleBtn}<button class="btn-icon edit" onclick="otvoriPromjenuLozinke('${k.uid}','${esc(k.ime||k.email)}')" title="Promijeni lozinku">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>${delBtn}
+    </div>`;
+  }).join('');
+  document.getElementById('korisnici-body').innerHTML = (rows||'<div class="empty" style="padding:20px 0">Nema korisnika.</div>') + `
+    <button class="btn primary" style="width:100%;margin-top:8px;padding:12px;border-radius:var(--radius);font-size:15px;font-family:inherit;cursor:pointer;font-weight:500;background:var(--green-bg);border:0.5px solid #b2d9c0;color:var(--green);display:flex;align-items:center;justify-content:center;gap:8px" onclick="otvoriModal()">
+      <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Dodaj korisnika
+    </button>`;
+}
+
+window.toggleRole = async function(uid, currentRole) {
+  const nova = currentRole==='admin' ? 'user' : 'admin';
+  await updateDoc(doc(db,'korisnici',uid),{role:nova});
+  toast('Ovlast promijenjena → ' + (nova==='admin'?'Admin':'Korisnik'));
+};
+
+window.obrisiKorisnika = async function(uid, ime) {
+  if (!confirm('Obrisati korisnika ' + ime + '?\n\nKorisnik neće moći više pristupiti aplikaciji.')) return;
+  // Obriši Firestore profil (Auth account ostaje — ne možemo ga obrisati s klijenta)
+  await deleteDoc(doc(db,'korisnici',uid));
+  toast('Korisnik obrisan iz baze');
+};
+
+// ---- modal novi korisnik ----
+window.otvoriModal = function() {
+  ['m-ime','m-email','m-password'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-role-user').checked=true;
+  document.getElementById('modal-err').textContent='';
+  document.getElementById('modal-ok-btn').disabled=false;
+  document.getElementById('modal-ok-btn').textContent='Dodaj korisnika';
+  document.getElementById('modal-korisnik').classList.add('open');
+};
+window.zatvoriModal = function() { document.getElementById('modal-korisnik').classList.remove('open'); };
+
+window.dodajKorisnika = async function() {
+  const ime    = document.getElementById('m-ime').value.trim();
+  const email  = document.getElementById('m-email').value.trim();
+  const pass   = document.getElementById('m-password').value;
+  const role   = document.getElementById('m-role-admin').checked ? 'admin' : 'user';
+  const err    = document.getElementById('modal-err');
+  const btn    = document.getElementById('modal-ok-btn');
+  if (!ime)   { err.textContent='Unesite ime korisnika.'; return; }
+  if (!email) { err.textContent='Unesite email.'; return; }
+  if (!pass||pass.length<6) { err.textContent='Lozinka mora imati min. 6 znakova.'; return; }
+
+  btn.disabled=true; btn.textContent='Kreiranje...'; err.textContent='';
+  try {
+    // Kreiraj Firebase Auth korisnika
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    const newUid = cred.user.uid;
+    // Spremi profil u Firestore
+    await setDoc(doc(db,'korisnici',newUid), {ime, email, role});
+    // Vrati se na Admin sesiju (createUser ne mijenja auth state zahvaljujući onAuthStateChanged guard)
+    zatvoriModal(); toast('Korisnik ' + ime + ' dodan (' + (role==='admin'?'Admin':'Korisnik') + ')');
+  } catch(e) {
+    err.textContent = e.code==='auth/email-already-in-use' ? 'Email već postoji.'
+                    : e.code==='auth/invalid-email' ? 'Neispravan email format.'
+                    : 'Greška: ' + e.message;
+    btn.disabled=false; btn.textContent='Dodaj korisnika';
+  }
+};
+
+// ---- modal promjena lozinke ----
+window.otvoriPromjenuLozinke = function(uid, ime) {
+  lozinkaCiljUid = uid;
+  document.getElementById('modal-loz-sub').textContent = 'Nova lozinka za: ' + ime;
+  document.getElementById('m-newpass').value='';
+  document.getElementById('modal-loz-err').textContent='';
+  document.getElementById('modal-lozinka').classList.add('open');
+};
+window.zatvoriModalLoz = function() {
+  document.getElementById('modal-lozinka').classList.remove('open');
+  lozinkaCiljUid=null;
+};
+window.spremiLozinku = async function() {
+  const pass = document.getElementById('m-newpass').value;
+  const err  = document.getElementById('modal-loz-err');
+  if (!pass||pass.length<6) { err.textContent='Lozinka mora imati min. 6 znakova.'; return; }
+  // Promjena lozinke moguća samo za trenutno prijavljenog korisnika
+  if (lozinkaCiljUid === auth.currentUser?.uid) {
+    try {
+      await updatePassword(auth.currentUser, pass);
+      zatvoriModalLoz(); toast('Lozinka promijenjena');
+    } catch(e) { err.textContent='Greška: ' + e.message; }
+  } else {
+    // Za ostale korisnike — admin mora koristiti Firebase konzolu
+    err.textContent = 'Lozinku drugog korisnika možete promijeniti u Firebase konzoli → Authentication → Users.';
+  }
+};
+
+
+// ── QR onboarding ────────────────────────────────────────
+const APP_URL = 'https://zlatkodrzanic.github.io/prodajaKUD';
+
+window.otvoriQR = function() {
+  zatvoriMenu();
+  const api = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&color=1a1917&bgcolor=ffffff&data=' + encodeURIComponent(APP_URL);
+  document.getElementById('qr-img').src = api;
+  document.getElementById('qr-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+};
+window.zatvoriQR = function() {
+  document.getElementById('qr-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+};
+// ── Enter na login ───────────────────────────────────────
+document.getElementById('inp-pass').addEventListener('keydown', e=>{if(e.key==='Enter')prijava();});
+document.getElementById('inp-email').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('inp-pass').focus();});
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
