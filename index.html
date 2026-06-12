@@ -585,30 +585,46 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+// Globalni dijagnostički log
+window._diagLogs = [];
+function diagLog(msg) {
+  const t = new Date().toLocaleTimeString('hr-HR');
+  const entry = '[' + t + '] ' + msg;
+  window._diagLogs.push(entry);
+  console.log(entry);
+  const el = document.getElementById('loading-sub');
+  if (el) { el.style.display='block'; el.textContent = msg; }
+}
+
 onAuthStateChanged(auth, async user => {
+  diagLog('Auth state: ' + (user ? 'prijavljen ' + user.email : 'odjava'));
   if (!user) { showLogin(); return; }
 
   // Ažuriraj loading poruku
   const loadingMsg = document.getElementById('loading-msg');
-  const loadingSub = document.getElementById('loading-sub');
   if (loadingMsg) loadingMsg.textContent = 'Spajanje na bazu...';
-  if (loadingSub) { loadingSub.style.display='block'; loadingSub.textContent = 'Dohvaćanje korisničkog profila...'; }
 
+  diagLog('Dohvaćam profil iz Firestore...');
   try {
     const snap = await withTimeout(getDoc(doc(db, 'korisnici', user.uid)), 8000);
+    diagLog('Firestore odgovor primljen');
     if (snap.exists()) {
+      diagLog('Profil pronađen: ' + (snap.data().role || '?'));
       trenutniKorisnik = { uid: user.uid, email: user.email, ...snap.data() };
     } else {
-      // Profil još nije kreiran — postavi kao admin
+      diagLog('Profil ne postoji, kreiram...');
       trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
       try {
         await withTimeout(setDoc(doc(db, 'korisnici', user.uid), {
           ime: user.email.split('@')[0], email: user.email, role: 'admin'
         }), 5000);
-      } catch(e2) { /* Rules još nisu postavljene */ }
+        diagLog('Profil kreiran');
+      } catch(e2) { diagLog('Kreiranje profila neuspješno: ' + e2.code); }
     }
+    diagLog('Ulazim u app...');
     showApp();
   } catch(e) {
+    diagLog('GREŠKA: ' + e.message + ' (code: ' + e.code + ')');
     console.warn('Firestore read failed:', e.message);
     if (e.message === 'timeout') {
       // Timeout — pokaži grešku s opcijom ponovnog pokušaja
@@ -634,7 +650,7 @@ onAuthStateChanged(auth, async user => {
           </button>
         </div>`;
     } else {
-      // Firestore rules greška — fallback kao admin
+      diagLog('Rules greška — fallback admin: ' + e.code);
       trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
       showApp();
     }
@@ -965,9 +981,7 @@ window.spremiArtikal = async function() {
       toast('Artikal dodan');
     }
     render();
-      } catch(e) { toast('Greška: '+e.message); }
-    }
-  });
+  } catch(e) { toast('Greška: '+e.message); }
 };
 window.startEdit  = function(id){editId=id;render();setTimeout(()=>{const el=document.getElementById('inp-naziv');if(el)el.focus();},50);};
 window.cancelEdit = function(){editId=null;render();};
@@ -1206,7 +1220,7 @@ window.zatvoriQR = function() {
 // ── Universal confirm splash ─────────────────────────────
 let _confirmCallback = null;
 
-function pokaziConfirm({ title, msg, yesTekst = 'Da, obriši', boja = 'var(--red)', ikona = 'trash', callback }) {
+window.pokaziConfirm = function({ title, msg, yesTekst = 'Da, obriši', boja = 'var(--red)', ikona = 'trash', callback }) {
   const ikone = {
     trash:  '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>',
     warn:   '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -1222,18 +1236,18 @@ function pokaziConfirm({ title, msg, yesTekst = 'Da, obriši', boja = 'var(--red
   yesBtn.style.background = boja;
   yesBtn.style.color = '#fff';
   _confirmCallback = callback;
-  yesBtn.onclick = () => { zatvoriConfirm(); if (_confirmCallback) _confirmCallback(); };
+  yesBtn.onclick = () => { const cb = _confirmCallback; window.zatvoriConfirm(); if (cb) cb(); };
   document.getElementById('confirm-splash').classList.add('open');
 }
 
-function zatvoriConfirm() {
+window.zatvoriConfirm = function() {
   document.getElementById('confirm-splash').classList.remove('open');
   _confirmCallback = null;
 }
 
 // Zatvori na klik pozadine
 document.getElementById('confirm-splash').addEventListener('click', e => {
-  if (e.target === document.getElementById('confirm-splash')) zatvoriConfirm();
+  if (e.target === document.getElementById('confirm-splash')) window.zatvoriConfirm();
 });
 
 // ── Enter na login ───────────────────────────────────────
@@ -1249,23 +1263,25 @@ const _hardTimeout = setTimeout(() => {
   const ls = document.getElementById('loading-screen');
   if (!ls || ls.style.display === 'none') return;
   ls.innerHTML = `
-    <div style="text-align:center;padding:32px 24px;max-width:320px">
-      <div style="width:60px;height:60px;border-radius:50%;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
-        <svg style="width:28px;height:28px;stroke:var(--red);fill:none;stroke-width:2" viewBox="0 0 24 24">
+    <div style="text-align:center;padding:24px 20px;max-width:360px;width:100%">
+      <div style="width:56px;height:56px;border-radius:50%;background:#fdf0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg style="width:26px;height:26px;stroke:#b83232;fill:none;stroke-width:2" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
       </div>
-      <div style="font-size:17px;font-weight:600;margin-bottom:8px">Greška pri spajanju</div>
-      <div style="font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.6">
-        Nije moguće spojiti se na Firebase.<br>Provjerite internetsku vezu i pokušajte ponovo.
-      </div>
-      <button onclick="window.location.reload()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#2d7a4f;color:#fff;font-size:16px;font-family:inherit;font-weight:600;cursor:pointer;margin-bottom:12px;display:block">
+      <div style="font-size:17px;font-weight:600;margin-bottom:6px">Greška pri spajanju</div>
+      <div style="font-size:13px;color:#6b6862;margin-bottom:12px">Detalji dijagnostike:</div>
+      <div id="diag-log" style="background:#f1efeb;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:11px;font-family:monospace;text-align:left;color:#1a1917;word-break:break-all;max-height:150px;overflow-y:auto;line-height:1.7"></div>
+      <button onclick="window.location.reload()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#2d7a4f;color:#fff;font-size:15px;font-family:inherit;font-weight:600;cursor:pointer;margin-bottom:10px;display:block">
         Pokušaj ponovo
       </button>
-      <button onclick="localStorage.clear();sessionStorage.clear();window.location.reload()" style="width:100%;padding:12px;border-radius:12px;border:0.5px solid #cbc8c2;background:transparent;color:#6b6862;font-size:14px;font-family:inherit;cursor:pointer;display:block">
-        Resetiraj i pokušaj ponovo
+      <button onclick="sessionStorage.clear();window.location.reload()" style="width:100%;padding:11px;border-radius:12px;border:0.5px solid #cbc8c2;background:transparent;color:#6b6862;font-size:13px;font-family:inherit;cursor:pointer;display:block">
+        Odjava i pokušaj ponovo
       </button>
     </div>`;
+  // Upiši dijagnostičke logove
+  const diagEl = document.getElementById('diag-log');
+  if (diagEl) diagEl.textContent = (window._diagLogs || ['(nema logova)']).join('\n');
 }, 12000);
 
 // Označi app kao pokrenutu (gasi hard timeout)
@@ -1297,15 +1313,10 @@ if ('serviceWorker' in navigator) {
     } catch(e) {}
   });
 
-  // Kad novi SW preuzme kontrolu — reload stranice
-  // Loading screen je već prikazan u primijenUpdate() pa nema treperenja
+  // Kad novi SW preuzme kontrolu — jednostavan reload
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      // Kratka pauza da loading screen bude vidljiv
-      setTimeout(() => window.location.reload(), 300);
-    }
+    if (!refreshing) { refreshing = true; window.location.reload(); }
   });
 }
 
@@ -1314,32 +1325,16 @@ function pokaziUpdateBanner() {
   if (splash) splash.style.display = 'flex';
 }
 
-function primijenUpdate() {
-  // Sakrij update splash
+window.primijenUpdate = function() {
   const splash = document.getElementById('update-splash');
   if (splash) splash.style.display = 'none';
-
-  // Pokaži loading screen s porukom o ažuriranju
-  const loadingScreen = document.getElementById('loading-screen');
-  const loadingMsg = loadingScreen ? loadingScreen.querySelector('p') : null;
-  if (loadingScreen) loadingScreen.style.display = 'flex';
-  if (loadingMsg) loadingMsg.textContent = 'Učitavanje nove verzije...';
-
-  // Sakrij sve ostalo
-  ['login-screen','main-app'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-
-  // Aktiviraj novi service worker
+  // Samo pošalji signal SW-u — controllerchange event će pokrenuti reload
   navigator.serviceWorker.getRegistration().then(reg => {
-    if (reg && reg.waiting) {
-      reg.waiting.postMessage('SKIP_WAITING');
-    }
+    if (reg && reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
   });
 }
 
-function odbijUpdate() {
+window.odbijUpdate = function() {
   const splash = document.getElementById('update-splash');
   if (splash) splash.style.display = 'none';
 }
