@@ -609,8 +609,17 @@ onAuthStateChanged(auth, async user => {
     const snap = await withTimeout(getDoc(doc(db, 'korisnici', user.uid)), 8000);
     diagLog('Firestore odgovor primljen');
     if (snap.exists()) {
-      diagLog('Profil pronađen: ' + (snap.data().role || '?'));
-      trenutniKorisnik = { uid: user.uid, email: user.email, ...snap.data() };
+      const profil = snap.data();
+      diagLog('Profil pronađen: ' + (profil.role || '?'));
+      // Provjeri je li korisnik onemogućen
+      if (profil.disabled === true) {
+        diagLog('Korisnik je onemogućen — odjava');
+        await signOut(auth);
+        showLogin();
+        document.getElementById('login-err').textContent = 'Vaš račun je onemogućen. Kontaktirajte administratora.';
+        return;
+      }
+      trenutniKorisnik = { uid: user.uid, email: user.email, ...profil };
     } else {
       diagLog('Profil ne postoji, kreiram...');
       trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
@@ -694,6 +703,26 @@ window.odjava = async function() {
 // ── Firestore listeners ──────────────────────────────────
 function startListeners() {
   stopListeners();
+
+  // ── Real-time provjera vlastitog profila — odmah odjavljuje ako je disabled/obrisan
+  const profRef = doc(db, 'korisnici', trenutniKorisnik.uid);
+  unsubs.push(onSnapshot(profRef, snap => {
+    if (!snap.exists()) {
+      // Profil obrisan — odjava
+      toast('Vaš račun je uklonjen.');
+      setTimeout(() => window.odjava(), 1500);
+      return;
+    }
+    if (snap.data().disabled === true) {
+      // Profil onemogućen — odjava
+      toast('Vaš račun je onemogućen.');
+      setTimeout(() => window.odjava(), 1500);
+      return;
+    }
+    // Ažuriraj lokalni profil (npr. promjena role)
+    const svjezi = snap.data();
+    trenutniKorisnik = { ...trenutniKorisnik, ...svjezi };
+  }));
 
   // Artikli
   const qA = query(collection(db,'artikli'), orderBy('naziv'));
@@ -1082,7 +1111,7 @@ function renderKorisnike() {
     const toggleBtn = !isSelf ? `<button class="btn-icon edit" onclick="toggleRole('${k.uid}','${k.role}')" title="Promijeni ovlast">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 23 15 17 15"/><line x1="20" y1="18" x2="20" y2="12"/></svg>
     </button>` : '';
-    const delBtn = !isSelf ? `<button class="btn-icon del" onclick="obrisiKorisnika('${k.uid}','${esc(k.ime||k.email)}')" title="Obriši">
+    const delBtn = !isSelf ? `<button class="btn-icon del" onclick="obrisiKorisnika('${k.uid}','${esc(k.ime||k.email)}')" title="Obriši korisnika">
       <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     </button>` : '';
     const avatar = `<div style="width:36px;height:36px;border-radius:50%;background:${k.role==='admin'?'#b85c00':'var(--green)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0">${esc((k.ime||k.email||'?').charAt(0).toUpperCase())}</div>`;
@@ -1118,13 +1147,17 @@ window.toggleRole = async function(uid, currentRole) {
 window.obrisiKorisnika = function(uid, ime) {
   pokaziConfirm({
     title: 'Obriši korisnika',
-    msg: ime + ' neće moći više pristupiti aplikaciji.',
-    yesTekst: 'Da, obriši korisnika',
+    msg: ime + ' više neće moći pristupiti aplikaciji. Akcija je trajna.',
+    yesTekst: 'Da, obriši',
     boja: 'var(--red)',
     ikona: 'user',
     callback: async () => {
       try {
+        // Korak 1: onemogući (blokira pristup odmah ako je prijavljen)
+        await updateDoc(doc(db,'korisnici',uid), { disabled: true });
+        // Korak 2: obriši Firestore profil
         await deleteDoc(doc(db,'korisnici',uid));
+        // Ažuriraj lokalni niz
         sviKorisnici = sviKorisnici.filter(x=>x.uid!==uid);
         renderKorisnike();
         toast('Korisnik ' + ime + ' obrisan');
@@ -1132,6 +1165,7 @@ window.obrisiKorisnika = function(uid, ime) {
     }
   });
 };
+
 
 // ---- modal novi korisnik ----
 window.otvoriModal = function() {
