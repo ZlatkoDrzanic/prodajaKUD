@@ -621,14 +621,12 @@ onAuthStateChanged(auth, async user => {
       }
       trenutniKorisnik = { uid: user.uid, email: user.email, ...profil };
     } else {
-      diagLog('Profil ne postoji, kreiram...');
-      trenutniKorisnik = { uid: user.uid, email: user.email, ime: user.email.split('@')[0], role: 'admin' };
-      try {
-        await withTimeout(setDoc(doc(db, 'korisnici', user.uid), {
-          ime: user.email.split('@')[0], email: user.email, role: 'admin'
-        }), 5000);
-        diagLog('Profil kreiran');
-      } catch(e2) { diagLog('Kreiranje profila neuspješno: ' + e2.code); }
+      // Profil ne postoji — korisnik je obrisan, odjavi ga odmah
+      diagLog('Profil ne postoji — odjava');
+      await signOut(auth);
+      showLogin();
+      document.getElementById('login-err').textContent = 'Vaš račun ne postoji. Kontaktirajte administratora.';
+      return;
     }
     diagLog('Ulazim u app...');
     showApp();
